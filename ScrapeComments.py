@@ -190,11 +190,10 @@ def run():
 	# print("Done")
 	# save_data(dct, "cnn_comments")
 
-
-	# American Renaissance Youtube Channel
-	print("Scraping the American Renaissance channel.")
 	dct = {}
-	v_id = 'HtO6CjNkzb0' # AMERICAN RENAISSANCE
+
+	v_id = input('Give a video id from the channel you\'d like to scrape (make sure you put it in quotes! ex. "pFPd_Dhs51s"): ')
+	save_name = input('What\'s the name of the channel? We\'ll use this to save your data as <input>_comments.pkl (make sure you put it in quotes! ex. "dailymail"): ')
 	c_id = get_channel_id_from_video_id(v_id)
 	p_id = get_all_uploads_from_channel_id(c_id)
 	v_ids = get_video_ids_from_playlist_id(p_id, 750)
@@ -204,7 +203,6 @@ def run():
 		for i in range(n):
 			print("video %d out of %d: %s" % (i, n, v_ids[i]))
 			add_response_to_dictionary(dct, v_ids[i], current_date, older_than)
-
 	except KeyboardInterrupt:
 		print("Stopped early with %d videos" % len(dct))
 
@@ -212,7 +210,7 @@ def run():
 		print("Unexpected Error", e)
 		print("Stopped early with %d videos" % len(dct))
 
-	save_data(dct, "american_renaissance_comments")
+	save_data(dct, save_name + "_comments")
 
 
 
@@ -452,9 +450,23 @@ def add_response_to_dictionary(dct, v_id, date_scraped=None, older_than=None):
 	# 	print("%s has more than 15000 comments+replies, so I will ignore it for now." % v_id)
 	# (Such videos may take enormous time to scrape.)
 	# 	return v_id
+	viewCount = 0
+	likeCount = 0
+	dislikeCount = 0
+	favoriteCount = 0
+	
+	stats_keys = stats.keys()
+	if 'viewCount' in stats_keys:
+		viewCount = stats["viewCount"]
+	if 'likeCount' in stats_keys:
+		likeCount = stats["likeCount"]
+	if 'dislikeCount' in stats_keys:
+		dislikeCount = stats['dislikeCount']
+	if 'favoriteCount' in stats_keys:
+		favoriteCount = stats['favoriteCount']			
 
-	video_stats = (video_timestamp, author, duration, stats["viewCount"], stats["likeCount"],
-		stats["dislikeCount"], stats["favoriteCount"], date_scraped)
+	video_stats = (video_timestamp, author, duration, viewCount, likeCount,
+		dislikeCount, favoriteCount, date_scraped)
 	url = WATCH_URL + v_id
 
 	video_comments = []
