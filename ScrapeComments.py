@@ -56,6 +56,8 @@ import google_auth_oauthlib.flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
+
+from termcolor import colored
 import datetime
 import pickle
 
@@ -192,27 +194,95 @@ def run():
 
 	dct = {}
 
-	v_id = input('Give a video id from the channel you\'d like to scrape (make sure you put it in quotes! ex. "pFPd_Dhs51s"): ')
-	save_name = input('What\'s the name of the channel? We\'ll use this to save your data as <input>_comments.pkl (make sure you put it in quotes! ex. "dailymail"): ')
+	print(colored("\n=====",'green'))
+	v_id = syntax_error_catch('Give a video id from the channel you\'d like to scrape (make sure you put it in' +
+		' quotes! ex. "pFPd_Dhs51s"): ')
 	c_id = get_channel_id_from_video_id(v_id)
 	p_id = get_all_uploads_from_channel_id(c_id)
 	v_ids = get_video_ids_from_playlist_id(p_id, 750)
+
+	len_vids = len(v_ids)
 	n = len(v_ids)
-	print(n)
+	assert n <= len_vids
+	print(str(n) + " videos total")
+
+	try:
+		scraped_channels = load_data('scraped_channels')
+	except Exception as e:
+		scraped_channels = {}
+
+	if c_id in scraped_channels.keys():
+		save_name, last_video_id, dates = scraped_channels[c_id]
+		dct = load_data(save_name)
+
+		print(colored("\nWe've already partially scraped " + save_name + ".", 'yellow'))
+		if last_video_id == 'COMPLETE':
+			print(colored(save_name + " was already completely scraped, ending with videos released 2 weeks before " + str(dates[0])
+				+ ", assuming no videos were deleted between then and " + str(dates[-1]) + "."), 'yellow')
+			redo = syntax_error_catch('\nWould you like to rescrape this channel? Write "y" in quotes if you do: ')
+			if redo != "y":
+				print(colored("Exiting program.", 'yellow'))
+				return
+		print(colored("We'll be continuing to scrape " + save_name + " starting with the video after " + str(last_video_id) + ".", 'yellow'))
+		index_of_last = v_ids.index(last_video_id)
+		assert index_of_last < len_vids-1
+		v_ids = v_ids[index_of_last + 1:]
+		n = len(v_ids)
+
+	else:
+		category = syntax_error_catch('Tell us which MBFC category this channel falls under (cp, lb, lcb, q, rb) (make sure ' + 
+			'you put it in quotes! ex. "cp"): ')
+		save_name = category + "/" + syntax_error_catch('What\'s the name of the channel? We\'ll use this to save your data as /<category>/'
+			+ '<input>_comments.pkl \n(Make sure you put it in quotes! ex. "dailymail"): ') + '_comments'
+
+		last_video_id = None
+		scraped_channels[c_id] = [save_name, last_video_id, []]
+
 	try:
 		for i in range(n):
 			print("video %d out of %d: %s" % (i, n, v_ids[i]))
 			add_response_to_dictionary(dct, v_ids[i], current_date, older_than)
+			last_video_id = v_ids[i]
+		last_video_id = 'COMPLETE'
 	except KeyboardInterrupt:
-		print("Stopped early with %d videos" % len(dct))
+		print("\nStopped early with %d videos" % len(dct))
 
 	except Exception as e:
-		print("Unexpected Error", e)
+		print("\nUnexpected Error", e)
 		print("Stopped early with %d videos" % len(dct))
 
-	save_data(dct, save_name + "_comments")
+	scraped_channels[c_id][1] = last_video_id
+	try:
+		scraped_channels[c_id][2].index(current_date[:10])
+	except ValueError:
+		scraped_channels[c_id][2] += [current_date[:10]]
+
+	if dct:
+		print(colored("Finished scraping up to video " + str(last_video_id) + ".", 'yellow'))
+	else:
+		print(colored("No videos available to scrape at this time.", 'yellow'))
+
+	while True:
+		try:
+			save_data(dct, save_name)
+		except IOError as e:
+			trial = "data/" + category
+			if not os.path.exists(trial):
+				os.makedirs(trial)
+		else:
+			break
+	print(colored("\nData saved to " + save_name + ". Exiting program!\n ===== \n", 'green'))
+	save_data(scraped_channels, 'scraped_channels')
 
 
+def syntax_error_catch(phrase):
+	while True:
+		try:
+			answer = input(colored(phrase, 'yellow'))
+		except (NameError, SyntaxError):
+			print(colored("Please re-enter your answer in quotes.", 'red'))
+		else:
+			return answer
 
 def save_data(obj, name):
     with open('data/'+ name + '.pkl', 'wb') as f:
@@ -344,10 +414,10 @@ def playlist_items_list_by_playlist_id(client, **kwargs):
 # Helper function which, given a playlist ID, grabs video IDs of the videos inside.
 def get_video_ids_from_playlist_id(p_id, maxVids=200):
 	try:
-		print("Attempting to pull Video IDs from the playlist with Playlist ID = ", p_id)
+		print("Attempting to pull Video IDs from the playlist with Playlist ID = " + str(p_id))
 		response = playlist_items_list_by_playlist_id(client, part='contentDetails',
 			maxResults=50, playlistId=p_id)
-		print(response)
+		# print(response)
 
 	except Exception as e:
 		print("Error with getting playlist items from Playlist ID %s" % p_id)
