@@ -242,10 +242,8 @@ def run():
 		for i in range(n):
 			print("video %d out of %d: %s" % (i, n, v_ids[i]))
 			add_response_to_dictionary(dct, v_ids[i], current_date, older_than)
-			if i == len_vids - n - 1:
-				last_video_id = 'COMPLETE'
-			else:
-				last_video_id = v_ids[i]
+			last_video_id = v_ids[i]
+		last_video_id = 'COMPLETE'
 	except KeyboardInterrupt:
 		print("\nStopped early with %d videos" % len(dct))
 
